@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forjador de Prompts — Dr. Luca Soares</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0e1c24;
+  --surface:#152834;
+  --surface-2:#1b3242;
+  --line:#26414f;
+  --line-soft:#1f3644;
+  --ink:#eae3d6;
+  --ink-2:#9db0bc;
+  --ink-3:#6b8394;
+  --amber:#e0954e;
+  --amber-deep:#c47a35;
+  --claude:#e0954e;
+  --gemini:#5b9fe0;
+  --openev:#41ad9b;
+  --notebook:#a48ae8;
+  --serif:'Instrument Serif',Georgia,serif;
+  --sans:'Inter',system-ui,-apple-system,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box;}
+html{-webkit-text-size-adjust:100%;}
+body{
+  margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+  font-size:15px;line-height:1.5;
+  background-image:radial-gradient(ellipse 900px 500px at 12% -5%, #1a3240 0%, transparent 60%);
+  background-attachment:fixed;
+}
+.wrap{max-width:960px;margin:0 auto;padding:32px 20px 70px;}
+
+/* ---- header ---- */
+header{margin-bottom:26px;}
+.brandline{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;}
+h1{font-family:var(--serif);font-size:clamp(30px,5vw,44px);font-weight:400;margin:0;letter-spacing:-.005em;line-height:1.05;}
+h1 i{color:var(--amber);}
+.tagline{color:var(--ink-2);font-size:14px;margin:10px 0 0;max-width:600px;}
+
+/* ---- composer ---- */
+.composer{
+  position:relative;background:var(--surface);border:1px solid var(--line);
+  border-radius:14px;padding:6px 6px 6px;margin-top:22px;
+  transition:border-color .18s;
+}
+.composer:focus-within{border-color:var(--amber);}
+#ask{
+  width:100%;background:transparent;border:0;color:var(--ink);
+  font-family:var(--sans);font-size:16.5px;line-height:1.55;
+  padding:16px 18px 8px;resize:none;min-height:96px;outline:none;
+}
+#ask::placeholder{color:var(--ink-3);}
+.composer-foot{
+  display:flex;align-items:center;gap:10px;padding:8px 12px 10px;flex-wrap:wrap;
+  border-top:1px solid var(--line-soft);margin:6px 6px 0;
+}
+.readout{
+  display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:200px;
+}
+.pill{
+  font-family:var(--mono);font-size:11px;letter-spacing:.01em;
+  background:var(--surface-2);border:1px solid var(--line);color:var(--ink-2);
+  padding:5px 9px;border-radius:6px;cursor:pointer;white-space:nowrap;
+  transition:.15s;
+}
+.pill:hover{border-color:var(--ink-3);color:var(--ink);}
+.pill b{color:var(--ink);font-weight:500;}
+.pill.auto::before{content:"◆";color:var(--amber);margin-right:5px;font-size:8px;vertical-align:1px;}
+.pill.manual::before{content:"◇";color:var(--ink-3);margin-right:5px;font-size:8px;vertical-align:1px;}
+.counter{font-family:var(--mono);font-size:11px;color:var(--ink-3);}
+
+/* ---- presets ---- */
+.presets{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px;align-items:center;}
+.presets .lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin-right:2px;}
+.preset{
+  background:transparent;border:1px dashed var(--line);color:var(--ink-2);
+  font-family:var(--sans);font-size:12.5px;padding:6px 12px;border-radius:16px;cursor:pointer;transition:.15s;
+}
+.preset:hover{border-style:solid;border-color:var(--amber);color:var(--amber);}
+
+/* ---- output ---- */
+.out-section{margin-top:30px;}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;}
+.tab{
+  font-family:var(--mono);font-size:12px;padding:9px 14px;cursor:pointer;
+  background:var(--surface);border:1px solid var(--line);border-bottom:none;
+  border-radius:8px 8px 0 0;color:var(--ink-3);position:relative;top:1px;transition:.15s;
+}
+.tab:hover{color:var(--ink-2);}
+.tab .rec{
+  font-size:9px;background:var(--amber);color:#14100a;padding:1px 5px;border-radius:3px;
+  margin-left:6px;letter-spacing:.06em;vertical-align:1px;
+}
+.tab.on{color:var(--ink);background:var(--surface-2);border-color:var(--line);}
+.tab.on[data-t=claude]{box-shadow:inset 0 2px 0 var(--claude);}
+.tab.on[data-t=gemini]{box-shadow:inset 0 2px 0 var(--gemini);}
+.tab.on[data-t=openevidence]{box-shadow:inset 0 2px 0 var(--openev);}
+.tab.on[data-t=notebooklm]{box-shadow:inset 0 2px 0 var(--notebook);}
+
+.panel{
+  background:var(--surface-2);border:1px solid var(--line);border-radius:0 10px 10px 10px;
+  padding:0;overflow:hidden;
+}
+.panel-bar{
+  display:flex;justify-content:space-between;align-items:center;gap:10px;
+  padding:11px 16px;border-bottom:1px solid var(--line-soft);flex-wrap:wrap;
+}
+.note{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);letter-spacing:.03em;}
+.acts{display:flex;gap:7px;}
+.btn{
+  font-family:var(--mono);font-size:11.5px;padding:6px 12px;border-radius:6px;cursor:pointer;
+  border:1px solid var(--line);background:transparent;color:var(--ink-2);transition:.15s;
+}
+.btn:hover{border-color:var(--ink-3);color:var(--ink);}
+.btn.solid{background:var(--amber);border-color:var(--amber);color:#14100a;font-weight:500;}
+.btn.solid:hover{background:#eea75f;border-color:#eea75f;color:#14100a;}
+.btn.done{border-color:var(--openev);color:var(--openev);}
+
+#result{
+  font-family:var(--mono);font-size:12.8px;line-height:1.72;white-space:pre-wrap;
+  word-wrap:break-word;padding:20px 18px;margin:0;color:#e6eef3;min-height:210px;
+}
+.empty{color:var(--ink-3);font-family:var(--sans);font-style:italic;font-size:14px;}
+
+/* ---- drawer ---- */
+details.adv{margin-top:26px;border-top:1px solid var(--line-soft);padding-top:16px;}
+details.adv summary{
+  cursor:pointer;font-family:var(--mono);font-size:11.5px;color:var(--ink-3);
+  letter-spacing:.06em;text-transform:uppercase;list-style:none;
+}
+details.adv summary::-webkit-details-marker{display:none;}
+details.adv summary::before{content:"+ ";color:var(--amber);}
+details.adv[open] summary::before{content:"− ";}
+.adv-body{padding:16px 0 0;display:grid;gap:14px;}
+.field label{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px;}
+.field input,.field textarea{
+  width:100%;background:var(--surface);border:1px solid var(--line);color:var(--ink);
+  border-radius:7px;padding:9px 11px;font-family:var(--sans);font-size:13.5px;outline:none;
+}
+.field input:focus,.field textarea:focus{border-color:var(--amber);}
+.field .desc{font-size:12px;color:var(--ink-3);margin-top:6px;line-height:1.45;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+@media(max-width:600px){.grid2{grid-template-columns:1fr;}}
+
+/* ---- menu popover ---- */
+.menu{
+  position:absolute;z-index:50;background:var(--surface-2);border:1px solid var(--line);
+  border-radius:9px;padding:5px;min-width:190px;box-shadow:0 12px 34px rgba(0,0,0,.5);
+}
+.menu div{
+  padding:7px 10px;border-radius:6px;font-size:13px;cursor:pointer;color:var(--ink-2);
+}
+.menu div:hover{background:var(--surface);color:var(--ink);}
+.menu div.sel{color:var(--amber);}
+
+footer{margin-top:44px;font-family:var(--mono);font-size:11px;color:var(--ink-3);border-top:1px solid var(--line-soft);padding-top:16px;}
+footer a{color:var(--ink-2);text-decoration:none;border-bottom:1px solid var(--line);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="brandline">
+    <h1>Forjador de <i>Prompts</i></h1>
+  </div>
+  <p class="tagline">Escreva a pergunta do jeito que ela sai da sua cabeça. O resto — papel, formato, restrições e a versão certa para cada IA — é montado sozinho enquanto você digita.</p>
+</header>
+
+<div class="composer">
+  <textarea id="ask" placeholder="Ex.: resumo das diretrizes de sepse com foco em antibiótico precoce" autofocus></textarea>
+  <div class="composer-foot">
+    <div class="readout" id="readout"></div>
+    <span class="counter" id="counter"></span>
+  </div>
+</div>
+
+<div class="presets">
+  <span class="lbl">Atalhos</span>
+  <button class="preset" data-p="0">Revisar conduta clínica</button>
+  <button class="preset" data-p="1">Resumir artigo/aula</button>
+  <button class="preset" data-p="2">Gerar questões de prova</button>
+  <button class="preset" data-p="3">Comparar duas opções</button>
+  <button class="preset" data-p="4">Explicar do zero</button>
+  <button class="preset" data-p="5">Escrever/revisar texto</button>
+</div>
+
+<div class="out-section">
+  <div class="tabs" id="tabs"></div>
+  <div class="panel">
+    <div class="panel-bar">
+      <span class="note" id="note">o prompt aparece aqui conforme você escreve</span>
+      <div class="acts">
+        <button class="btn" id="refine" title="Reescreve com IA (precisa de chave, veja Ajustes)">refinar com IA</button>
+        <button class="btn" id="open">abrir a IA ↗</button>
+        <button class="btn solid" id="copy">copiar</button>
+      </div>
+    </div>
+    <pre id="result"><span class="empty">Comece a digitar acima.</span></pre>
+  </div>
+</div>
+
+<details class="adv">
+  <summary>Ajustes opcionais</summary>
+  <div class="adv-body">
+    <div class="grid2">
+      <div class="field">
+        <label>Contexto fixo sobre você</label>
+        <textarea id="persona" rows="2" placeholder="Ex.: médico residente de clínica médica, português do Brasil"></textarea>
+        <p class="desc">Entra em todos os prompts. Preencha uma vez.</p>
+      </div>
+      <div class="field">
+        <label>Restrições padrão</label>
+        <textarea id="rules" rows="2" placeholder="Ex.: não inventar referências; sinalizar incertezas"></textarea>
+        <p class="desc">Regras que valem sempre, independentemente da pergunta.</p>
+      </div>
+    </div>
+    <div class="field">
+      <label>Chave da API Anthropic — opcional</label>
+      <input type="password" id="key" placeholder="sk-ant-...">
+      <p class="desc">Só é necessária para o botão <b>refinar com IA</b>, que reescreve o prompt de verdade em vez de montá-lo por regras. A chave fica salva apenas no seu navegador e é enviada exclusivamente para a Anthropic. Sem ela, o forjador continua funcionando normalmente, offline.</p>
+    </div>
+  </div>
+</details>
+
+<footer>
+  Roda inteiramente no seu navegador · nenhum dado sai daqui ·
+  <a href="https://drlucasoares.github.io" target="_blank" rel="noopener">drlucasoares.github.io</a>
+</footer>
+</div>
+
+<script>
+/* ============ armazenamento tolerante ============ */
+const store = {
+  get(k){ try{ return localStorage.getItem(k) || ''; }catch(e){ return mem[k]||''; } },
+  set(k,v){ try{ localStorage.setItem(k,v); }catch(e){ mem[k]=v; } }
+};
+const mem = {};
+
+/* ============ dicionário de detecção ============ */
+const ALVOS = {
+  claude:      {nome:'Claude',       url:'https://claude.ai/new'},
+  gemini:      {nome:'Gemini',       url:'https://gemini.google.com/app'},
+  openevidence:{nome:'OpenEvidence', url:'https://www.openevidence.com'},
+  notebooklm:  {nome:'NotebookLM',   url:'https://notebooklm.google.com'}
+};
+
+const SINAIS = {
+  openevidence: /\b(conduta|tratamento|tratar|diagn[óo]stic|dose|posologi|antibi[óo]tic|diretriz|guideline|protocolo cl[íi]nico|paciente|prognóstic|contraindica|efeito adverso|evid[êe]ncia|ensaio cl[íi]nico|metan[áa]lise|first.?line|manejo|terap[êe]utic|sepse|infarto|avc|dpoc|icc|insufici[êe]ncia|pneumonia|hipertens|diabet)/i,
+  notebooklm:   /\b(meus? (arquivo|pdf|documento|material|fonte)|no notebook|as fontes|documento(s)? que (eu )?(carreguei|subi|anexei)|do pdf|desta aula|deste slide|apostila|essa transcri|com base (n[oa]s?|apenas)|somente nas fontes)/i,
+  gemini:       /\b(imagem|foto|print|screenshot|planilha|v[íi]deo|youtube|google (docs|drive|sheets)|traduz)/i,
+  claude:       /\b(c[óo]digo|script|python|javascript|html|planilha em|escrev(er|a)|redig|revis(ar|e) (o )?text|reescrev|artigo|reda[çc][ãa]o|e-?mail|resumo executivo|estrutur)/i
+};
+
+const TIPOS = [
+  {id:'comparar',  re:/\b(compar|versus|\bvs\b|diferen[çc]a entre|qual (é )?melhor|prós e contras)/i,
+   fmt:'tabela comparativa, com uma linha final de conclusão prática'},
+  {id:'passos',    re:/\b(como (fa[çz]|proceder|conduzir|abordar)|passo a passo|fluxograma|protocolo|algoritmo|roteiro)/i,
+   fmt:'passo a passo numerado, cada passo com uma frase de justificativa'},
+  {id:'resumir',   re:/\b(resum|sintetiz|principais pontos|em poucas palavras|tl;?dr)/i,
+   fmt:'resumo em tópicos curtos, do mais para o menos importante'},
+  {id:'questoes',  re:/\b(quest[õo]es|prova|simulado|flashcard|me teste|quiz|exerc[íi]cios)/i,
+   fmt:'lista de questões com alternativas, gabarito e comentário ao final de cada uma'},
+  {id:'explicar',  re:/\b(explic|o que [ée]|por que|como funciona|entender|me ensin|didátic)/i,
+   fmt:'explicação didática: definição, mecanismo, aplicação prática e um erro comum'},
+  {id:'listar',    re:/\b(list|quais s[ãa]o|cite|enumere|exemplos de)/i,
+   fmt:'lista objetiva com marcadores'}
+];
+
+const PAPEIS = {
+  openevidence:'médico especialista com domínio da literatura e das diretrizes vigentes',
+  notebooklm:'analista de documentos, fiel exclusivamente ao material fornecido',
+  gemini:'assistente objetivo e direto ao ponto',
+  claude:'especialista no assunto, com talento para explicar com clareza'
+};
+
+const LIXO = /^\s*(por favor,?\s*|me\s+|voc[êe]\s+(pode|poderia|consegue)\s*|eu\s+)?(quero|queria|gostaria|preciso|precisava)\s*(que\s+(voc[êe]|tu)\s*(me\s*)?)?(de\s+)?(um[ao]?\s+)?(ajuda\s+(com|para|a)\s+)?(fa[çz]er?|criar?|gerar?|dar?|diga|dizer|explique|explicar|mostrar?|monte|montar)?\s*(me\s+)?/i;
+
+/* ============ presets ============ */
+const PRESETS = [
+  {t:'Revisar a conduta atual para ', fmt:'passo a passo numerado, cada passo com uma frase de justificativa', alvo:'openevidence'},
+  {t:'Resumir os pontos principais de ', fmt:'resumo em tópicos curtos, do mais para o menos importante', alvo:'notebooklm'},
+  {t:'Gerar 10 questões de múltipla escolha sobre ', fmt:'lista de questões com alternativas, gabarito e comentário ao final de cada uma', alvo:'claude'},
+  {t:'Comparar ', fmt:'tabela comparativa, com uma linha final de conclusão prática', alvo:'claude'},
+  {t:'Explicar do zero, como se eu nunca tivesse estudado, o tema ', fmt:'explicação didática: definição, mecanismo, aplicação prática e um erro comum', alvo:'claude'},
+  {t:'Revisar e melhorar o texto abaixo, mantendo minha voz:\n\n', fmt:'texto reescrito, seguido de uma lista curta do que foi alterado e por quê', alvo:'claude'}
+];
+
+/* ============ estado ============ */
+let manual = {alvo:null, fmt:null, tam:null};
+let aba = null;
+let prompts = {};
+const TAMANHOS = ['resposta curta e direta','profundidade média, sem excesso','resposta detalhada e aprofundada'];
+
+/* ============ análise ============ */
+function analisar(txt){
+  const t = txt.trim();
+  let alvo = 'claude', score = {claude:0,gemini:0,openevidence:0,notebooklm:0};
+  for(const k in SINAIS){ if(SINAIS[k].test(t)) score[k] += (t.match(SINAIS[k])||[]).length + 1; }
+  const ordem = ['notebooklm','openevidence','gemini','claude'];
+  let best = 0;
+  ordem.forEach(k=>{ if(score[k] > best){ best = score[k]; alvo = k; } });
+
+  let tipo = null;
+  for(const T of TIPOS){ if(T.re.test(t)){ tipo = T; break; } }
+  const fmt = tipo ? tipo.fmt : 'texto organizado em seções curtas com títulos';
+
+  const palavras = t.split(/\s+/).filter(Boolean).length;
+  let tam = palavras > 40 ? 2 : 1;
+  if(/\b(r[áa]pid|curto|breve|resumid|direto)\b/i.test(t)) tam = 0;
+  if(/\b(detalhad|completo|aprofundad|extenso|minucios)\b/i.test(t)) tam = 2;
+
+  return {alvo:manual.alvo||alvo, fmt:manual.fmt||fmt, tam: manual.tam!==null?manual.tam:tam, auto:{alvo:!manual.alvo,fmt:!manual.fmt,tam:manual.tam===null}};
+}
+
+function limpar(txt){
+  let t = txt.trim().replace(LIXO,'');
+  t = t.replace(/^[:,\-–\s]+/,'');
+  if(!t) return txt.trim();
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+/* ============ montagem ============ */
+function montar(alvo, d){
+  const tarefa = d.tarefa;
+  const ctx = store.get('persona').trim();
+  const rules = store.get('rules').trim();
+  const linhas = [];
+
+  if(alvo === 'openevidence'){
+    linhas.push(tarefa.endsWith('?') ? tarefa : tarefa + '.');
+    linhas.push('');
+    linhas.push('Responda com base na evidência mais atual disponível, citando as fontes e o nível de evidência de cada recomendação. Deixe explícito quando houver divergência entre sociedades ou quando a evidência for fraca.');
+    linhas.push('');
+    linhas.push('Formato: ' + d.fmt + '. Extensão: ' + TAMANHOS[d.tam] + '.');
+    if(ctx) linhas.push('Contexto de quem pergunta: ' + ctx + '.');
+    if(rules) linhas.push('Restrições: ' + rules + '.');
+    return linhas.join('\n');
+  }
+
+  if(alvo === 'notebooklm'){
+    linhas.push('Usando exclusivamente as fontes carregadas neste notebook, sem recorrer a conhecimento externo:');
+    linhas.push('');
+    linhas.push(tarefa);
+    linhas.push('');
+    linhas.push('Cite a fonte e o trecho de origem em cada afirmação. Se as fontes não cobrirem alguma parte, diga isso claramente em vez de completar por conta própria.');
+    linhas.push('');
+    linhas.push('Formato: ' + d.fmt + '. Extensão: ' + TAMANHOS[d.tam] + '.');
+    if(rules) linhas.push('Restrições: ' + rules + '.');
+    return linhas.join('\n');
+  }
+
+  if(alvo === 'gemini'){
+    linhas.push('Aja como ' + PAPEIS.gemini + '.');
+    linhas.push('');
+    linhas.push(tarefa);
+    linhas.push('');
+    linhas.push('Se houver arquivo, imagem ou link anexado nesta conversa, baseie-se neles antes de usar conhecimento geral.');
+    linhas.push('Formato: ' + d.fmt + '. Extensão: ' + TAMANHOS[d.tam] + '.');
+    if(ctx) linhas.push('Sobre mim: ' + ctx + '.');
+    if(rules) linhas.push('Restrições: ' + rules + '.');
+    return linhas.join('\n');
+  }
+
+  // claude
+  linhas.push('Aja como ' + PAPEIS.claude + '.');
+  if(ctx) linhas.push('Quem pergunta: ' + ctx + '.');
+  linhas.push('');
+  linhas.push(tarefa);
+  linhas.push('');
+  linhas.push('Como responder:');
+  linhas.push('— ' + d.fmt.charAt(0).toUpperCase() + d.fmt.slice(1) + '.');
+  linhas.push('— ' + TAMANHOS[d.tam].charAt(0).toUpperCase() + TAMANHOS[d.tam].slice(1) + '.');
+  linhas.push('— Pense nos pontos críticos antes de escrever, mas entregue só a resposta final organizada.');
+  if(rules) linhas.push('— ' + rules + '.');
+  linhas.push('');
+  linhas.push('Se faltar alguma informação, adote a interpretação mais provável e sinalize a suposição, em vez de parar para perguntar.');
+  return linhas.join('\n');
+}
+
+/* ============ render ============ */
+const $ask = document.getElementById('ask');
+const $res = document.getElementById('result');
+const $tabs = document.getElementById('tabs');
+const $readout = document.getElementById('readout');
+const $note = document.getElementById('note');
+const $counter = document.getElementById('counter');
+
+function atualizar(){
+  const raw = $ask.value;
+  $counter.textContent = raw.trim() ? raw.trim().split(/\s+/).length + ' palavras' : '';
+
+  if(!raw.trim()){
+    $res.innerHTML = '<span class="empty">Comece a digitar acima.</span>';
+    $tabs.innerHTML = ''; $readout.innerHTML = '';
+    $note.textContent = 'o prompt aparece aqui conforme você escreve';
+    prompts = {};
+    return;
+  }
+
+  const d = analisar(raw);
+  d.tarefa = limpar(raw);
+  if(!aba || manual.alvo) aba = d.alvo;
+  if(!prompts[aba] && !ALVOS[aba]) aba = d.alvo;
+
+  prompts = {};
+  Object.keys(ALVOS).forEach(k => prompts[k] = montar(k, d));
+
+  // tabs
+  $tabs.innerHTML = '';
+  Object.keys(ALVOS).forEach(k=>{
+    const el = document.createElement('div');
+    el.className = 'tab' + (k===aba?' on':'');
+    el.dataset.t = k;
+    el.innerHTML = ALVOS[k].nome + (k===d.alvo && !manual.alvo ? '<span class="rec">sugerido</span>' : '');
+    el.onclick = ()=>{ aba = k; atualizar(); };
+    $tabs.appendChild(el);
+  });
+
+  // readout pills
+  $readout.innerHTML = '';
+  pill('alvo', ALVOS[d.alvo].nome, d.auto.alvo, Object.keys(ALVOS).map(k=>({v:k,l:ALVOS[k].nome})), v=>{manual.alvo=v; aba=v;});
+  pill('formato', curto(d.fmt), d.auto.fmt, TIPOS.map(t=>({v:t.fmt,l:curto(t.fmt)})).concat([{v:'texto organizado em seções curtas com títulos',l:'texto em seções'}]), v=>{manual.fmt=v;});
+  pill('tamanho', ['curto','médio','detalhado'][d.tam], d.auto.tam, [{v:0,l:'curto'},{v:1,l:'médio'},{v:2,l:'detalhado'}], v=>{manual.tam=v;});
+
+  $res.textContent = prompts[aba];
+  $note.textContent = '◆ ajustado automaticamente · clique nas etiquetas para mudar';
+}
+
+function curto(f){
+  return f.split(/[,:]/)[0].replace(/^(lista de |tabela |resumo em |explicação )/,m=>m).slice(0,28);
+}
+
+function pill(label, valor, auto, opcoes, onPick){
+  const el = document.createElement('span');
+  el.className = 'pill ' + (auto?'auto':'manual');
+  el.innerHTML = label + ': <b>' + valor + '</b>';
+  el.onclick = (e)=>{ abrirMenu(e, opcoes, valor, onPick); };
+  $readout.appendChild(el);
+}
+
+function abrirMenu(e, opcoes, atual, onPick){
+  document.querySelectorAll('.menu').forEach(m=>m.remove());
+  const m = document.createElement('div');
+  m.className = 'menu';
+  opcoes.forEach(o=>{
+    const d = document.createElement('div');
+    d.textContent = o.l;
+    if(o.l === atual) d.className = 'sel';
+    d.onclick = ()=>{ onPick(o.v); m.remove(); atualizar(); };
+    m.appendChild(d);
+  });
+  document.body.appendChild(m);
+  const r = e.currentTarget.getBoundingClientRect();
+  m.style.left = Math.min(r.left, window.innerWidth - m.offsetWidth - 14) + 'px';
+  m.style.top  = (r.bottom + window.scrollY + 6) + 'px';
+  setTimeout(()=>document.addEventListener('click', function h(ev){
+    if(!m.contains(ev.target)){ m.remove(); document.removeEventListener('click',h); }
+  }),0);
+}
+
+/* ============ ações ============ */
+document.getElementById('copy').onclick = function(){
+  if(!prompts[aba]) return;
+  navigator.clipboard.writeText(prompts[aba]);
+  this.textContent = 'copiado ✓'; this.classList.add('done');
+  setTimeout(()=>{ this.textContent='copiar'; this.classList.remove('done'); },1400);
+};
+document.getElementById('open').onclick = function(){
+  if(!prompts[aba]) return;
+  navigator.clipboard.writeText(prompts[aba]);
+  window.open(ALVOS[aba].url,'_blank','noopener');
+};
+
+document.getElementById('refine').onclick = async function(){
+  if(!prompts[aba]) return;
+  const btn = this, original = prompts[aba];
+  btn.textContent = 'refinando...';
+  const key = store.get('anthKey');
+  try{
+    const headers = {'Content-Type':'application/json'};
+    if(key){ headers['x-api-key']=key; headers['anthropic-version']='2023-06-01'; headers['anthropic-dangerous-direct-browser-access']='true'; }
+    const r = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST', headers,
+      body: JSON.stringify({
+        model:'claude-sonnet-4-6', max_tokens:1000,
+        messages:[{role:'user', content:
+`Reescreva o prompt abaixo para obter a melhor resposta possível de ${ALVOS[aba].nome}. Torne-o mais específico e natural, corte redundância, mantenha o idioma português. Responda SOMENTE com o prompt reescrito, sem comentários, sem aspas, sem markdown.
+
+---
+${original}`}]
+      })
+    });
+    if(!r.ok) throw new Error('http '+r.status);
+    const data = await r.json();
+    const txt = data.content.filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
+    if(txt){ prompts[aba] = txt; $res.textContent = txt; $note.textContent = '✦ reescrito por IA'; }
+    btn.textContent = 'refinar com IA';
+  }catch(err){
+    btn.textContent = key ? 'falhou — ver chave' : 'requer chave da API';
+    setTimeout(()=>btn.textContent='refinar com IA', 2600);
+  }
+};
+
+/* ============ presets ============ */
+document.querySelectorAll('.preset').forEach(b=>{
+  b.onclick = ()=>{
+    const p = PRESETS[+b.dataset.p];
+    manual.fmt = p.fmt; manual.alvo = p.alvo; aba = p.alvo;
+    $ask.value = p.t;
+    $ask.focus();
+    $ask.setSelectionRange($ask.value.length,$ask.value.length);
+    atualizar();
+  };
+});
+
+/* ============ ajustes persistentes ============ */
+['persona','rules'].forEach(id=>{
+  const el = document.getElementById(id);
+  el.value = store.get(id);
+  el.oninput = ()=>{ store.set(id, el.value); atualizar(); };
+});
+const $key = document.getElementById('key');
+$key.value = store.get('anthKey');
+$key.oninput = ()=> store.set('anthKey',$key.value.trim());
+
+/* ============ bindings ============ */
+$ask.addEventListener('input', ()=>{
+  $ask.style.height='auto';
+  $ask.style.height = Math.max(96, $ask.scrollHeight) + 'px';
+  manual.alvo = null; // volta à sugestão automática ao reescrever
+  atualizar();
+});
+$ask.addEventListener('keydown', e=>{
+  if((e.metaKey||e.ctrlKey) && e.key==='Enter'){ e.preventDefault(); document.getElementById('copy').click(); }
+});
+atualizar();
+</script>
+</body>
+</html>
